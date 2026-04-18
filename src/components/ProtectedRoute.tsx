@@ -1,29 +1,21 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { auth, isMock } from '../lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { supabase, isMock } from '../lib/supabase';
 
 export default function ProtectedRoute() {
-  const [user, setUser] = React.useState<User | null>(() => {
-    if (isMock) {
-      const isAuthed = localStorage.getItem('luxe_mock_auth') === 'true';
-      return isAuthed ? ({ email: 'authorized@luxe.com', displayName: 'Authorized Administrator' } as any) : null;
-    }
-    return null;
+  const [user, setUser] = React.useState<any>(() => {
+    const isAuthed = localStorage.getItem('luxe_admin_auth') === 'true';
+    return isAuthed ? ({ email: 'ashu', user_metadata: { full_name: 'Administrator' } } as any) : null;
   });
-  const [loading, setLoading] = React.useState(!isMock);
+  const [loading, setLoading] = React.useState(false);
 
+  // Since we are using a simple local storage check, we don't need the complex Supabase auth listeners
+  // but we can keep a simple check to ensure UI sync
   React.useEffect(() => {
-    if (isMock) {
-      setLoading(false);
-      return;
+    const isAuthed = localStorage.getItem('luxe_admin_auth') === 'true';
+    if (!isAuthed) {
+      setUser(null);
     }
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
   }, []);
 
   if (loading) {

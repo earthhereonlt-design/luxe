@@ -1,8 +1,10 @@
+import { supabase, isMock } from './supabase';
 import { Product, ProductInput } from '../types';
 
-const STORAGE_KEY = 'luxe_products_v1';
+const TABLE_NAME = 'products';
 
-const INITIAL_PRODUCTS: Product[] = [
+// Fallback initial products if database is empty and in mock mode
+const INITIAL_PRODUCTS : Product[] = [
   {
     id: '1',
     title: 'Minimalist Leather Carryall',
@@ -27,55 +29,148 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
-export const getProducts = (): Product[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_PRODUCTS));
-    return INITIAL_PRODUCTS;
+export const getProducts = async (): Promise<Product[]> => {
+  if (isMock) {
+    const stored = localStorage.getItem('luxe_products_v1');
+    if (!stored) {
+      localStorage.setItem('luxe_products_v1', JSON.stringify(INITIAL_PRODUCTS));
+      return INITIAL_PRODUCTS;
+    }
+    return JSON.parse(stored);
   }
-  return JSON.parse(stored);
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .select('*')
+      .order('createdAt', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error getting products:", error);
+    return [];
+  }
 };
 
-export const getProductBySlug = (slug: string): Product | undefined => {
-  return getProducts().find(p => p.slug === slug);
+export const getProductBySlug = async (slug: string): Promise<Product | undefined> => {
+  if (isMock) {
+    return (await getProducts()).find(p => p.slug === slug);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error) throw error;
+    return data || undefined;
+  } catch (error) {
+    console.error("Error getting product by slug:", error);
+    return undefined;
+  }
 };
 
-export const getProductById = (id: string): Product | undefined => {
-  return getProducts().find(p => p.id === id);
+export const getProductById = async (id: string): Promise<Product | undefined> => {
+  if (isMock) {
+    return (await getProducts()).find(p => p.id === id);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data || undefined;
+  } catch (error) {
+    console.error("Error getting product by id:", error);
+    return undefined;
+  }
 };
 
-export const addProduct = (input: ProductInput): Product => {
-  const products = getProducts();
-  const newProduct: Product = {
-    ...input,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-  };
-  const updated = [newProduct, ...products];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  return newProduct;
+export const addProduct = async (input: ProductInput): Promise<Product> => {
+  if (isMock) {
+    const products = await getProducts();
+    const newProduct: Product = {
+      ...input,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem('luxe_products_v1', JSON.stringify([newProduct, ...products]));
+    return newProduct;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .insert([{
+        ...input,
+        createdAt: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error adding product:", error);
+    throw error;
+  }
 };
 
-export const updateProduct = (id: string, input: Partial<ProductInput>): Product => {
-  const products = getProducts();
-  const index = products.findIndex(p => p.id === id);
-  if (index === -1) throw new Error('Product not found');
-  
-  const updatedProduct = {
-    ...products[index],
-    ...input,
-    updatedAt: new Date().toISOString(),
-  } as Product;
-  
-  const updatedProducts = [...products];
-  updatedProducts[index] = updatedProduct;
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
-  return updatedProduct;
+export const updateProduct = async (id: string, input: Partial<ProductInput>): Promise<Product> => {
+  if (isMock) {
+    const products = await getProducts();
+    const index = products.findIndex(p => p.id === id);
+    if (index === -1) throw new Error('Product not found');
+    const updatedProduct = { ...products[index], ...input, updatedAt: new Date().toISOString() } as Product;
+    const updatedProducts = [...products];
+    updatedProducts[index] = updatedProduct;
+    localStorage.setItem('luxe_products_v1', JSON.stringify(updatedProducts));
+    return updatedProduct;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .update({
+        ...input,
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error updating product:", error);
+    throw error;
+  }
 };
 
-export const deleteProduct = (id: string) => {
-  const products = getProducts();
-  const updated = products.filter(p => p.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+export const deleteProduct = async (id: string): Promise<void> => {
+  if (isMock) {
+    const products = await getProducts();
+    const updated = products.filter(p => p.id !== id);
+    localStorage.setItem('luxe_products_v1', JSON.stringify(updated));
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from(TABLE_NAME)
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    throw error;
+  }
 };

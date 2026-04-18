@@ -2,8 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { LogIn, Mail, Lock, ShieldCheck, AlertCircle } from 'lucide-react';
-import { signInWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
-import { auth, isMock } from '../../lib/firebase';
+import { supabase, isMock } from '../../lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = React.useState('');
@@ -17,25 +16,19 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    // AI Studio Helper: Professional bypass for preview environments
-    if (isMock) {
-      setTimeout(() => {
-        localStorage.setItem('luxe_mock_auth', 'true');
-        navigate('/admin/dashboard');
-        setIsLoading(false);
-      }, 1000);
-      return;
-    }
+    // Hardcoded Administrative Credentials
+    const ADMIN_USER = 'ashu';
+    const ADMIN_PASS = 'aayush99';
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/admin/dashboard');
-    } catch (err: any) {
-      console.error(err);
-      setError('Invalid credentials. Access denied by administrative protocol.');
-    } finally {
+    setTimeout(() => {
+      if (email === ADMIN_USER && password === ADMIN_PASS) {
+        localStorage.setItem('luxe_admin_auth', 'true');
+        navigate('/admin/dashboard');
+      } else {
+        setError('Invalid Security Key or Access ID. Access Denied.');
+      }
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   return (
